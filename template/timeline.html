@@ -3,18 +3,19 @@
 <head>
 <meta content="text/html; charset=UTF-8" http-equiv="content-type">
 <title>Retwis - Example Twitter clone based on the Redis Key-Value DB</title>
-<link href="css/style.css" rel="stylesheet" type="text/css">
+<link href="static/css/style.css" rel="stylesheet" type="text/css">
 </head>
 <body>
 <div id="page">
 <div id="header">
-	<a href="/"><img style="border:none" src="logo.png" width="192" height="85" alt="Retwis"></a>
+	<a href="/"><img style="border:none" src="static/image/logo.png" width="192" height="85" alt="Retwis"></a>
 	<div id="navbar">
 		<a href="/">home</a> | <a href="/timeline">timeline</a>
 	</div>
 </div>
-<h2>Welcome aboard!</h2>
-Hey {{.Username}}, now you have an account, <a href="/home">a good start is to write your first message!</a>.
+<h2>Timeline</h2>
+<i>Latest registered users (an example of sorted sets)</i><br>
+<i>Latest 50 messages from users aroud the world!</i><br>
 <div id="footer">Redis is a very simple Twitter clone written in PHP as example application of the <a href="http://redis.io">Redis database</a></div>
 </div>
 </body>

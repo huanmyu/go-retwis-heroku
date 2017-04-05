@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+<title>Retwis - Example Twitter clone based on the Redis Key-Value DB</title>
+<link href="static/css/style.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+<div id="page">
+<div id="header">
+	<a href="/"><img style="border:none" src="static/image/logo.png" width="192" height="85" alt="Retwis"></a>
+	<div id="navbar">
+		<a href="/">home</a> | <a href="/timeline">timeline</a>
+	</div>
+</div>
+<div id="postform">
+	<form method="POST" action="/post">
+	{{.User.Username}}, what you are doing?<br>
+	<table>
+	<tr><td><textarea cols="70" rows="3" name="status"></textarea></td></tr>
+	<tr><td align="right"><input type="submit" name="doit" value="Update"></td></tr>
+	</table>
+	</form>
+	<div id="homeinfobox">
+	{{.FollowersCount}} followers<br>
+	{{.FollowingCount}} following<br>
+	</div>
+</div>
+<!--showUserPostsWithPagination-->
+<div id="footer">Redis is a very simple Twitter clone written in PHP as example application of the <a href="http://redis.io">Redis database</a></div>
+</div>
+</body>
+</html>

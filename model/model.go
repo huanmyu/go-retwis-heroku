@@ -43,7 +43,7 @@ func md5Password(password string) (salt, md5Password string) {
 	return
 }
 
-func md5PasswordWithSalt(salt, password string) (md5Password string) {
+func Md5PasswordWithSalt(salt, password string) (md5Password string) {
 	m5 := md5.New()
 	m5.Write([]byte(password))
 	m5.Write([]byte(string(salt)))
