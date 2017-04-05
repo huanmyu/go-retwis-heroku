@@ -7,6 +7,21 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/garyburd/redigo/internal",
+			"Comment": "v1.0.0-21-g0d253a6",
+			"Rev": "0d253a66e6e1349f4581d6d2b300ee434ee2da9f"
+		},
+		{
+			"ImportPath": "github.com/garyburd/redigo/redis",
+			"Comment": "v1.0.0-21-g0d253a6",
+			"Rev": "0d253a66e6e1349f4581d6d2b300ee434ee2da9f"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Comment": "v1.3.0-5-g599cba5",
+			"Rev": "599cba5e7b6137d46ddf58fb1765f5d928e69604"
+		},
+		{
 			"ImportPath": "github.com/urfave/negroni",
 			"Comment": "v0.2.0-104-gc0db5fe",
 			"Rev": "c0db5feaa33826cd5117930c8f4ee5c0f565eec6"
