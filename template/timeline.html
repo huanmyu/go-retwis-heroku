@@ -20,13 +20,13 @@
 <i>Latest registered users (an example of sorted sets)</i><br>
 	<div>
 		{{range .LatestUsers}}
-		<a class="username" href="/profile?u=">{{.Username}}}</a>
+		<a class="username" href="/profile?username={{.}}">{{.}}</a>
 		{{end}}
 	</div><br>
 <i>Latest 50 messages from users aroud the world!</i><br>
 	{{range .LatestUserPosts}}
 		<div class="post">
-			<a class="username" href="/profile?u=">{{.Username}}}</a>&nbsp{{.Content}}</br>
+			<a class="username" href="/profile?username={{.Username}}">{{.Username}}</a>&nbsp{{.Content}}</br>
 			<i>posted {{.Elapsed}} ago via web</i>
 		</div>
 	{{end}}	

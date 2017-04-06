@@ -10,22 +10,22 @@
 <div id="header">
 	<a href="/"><img style="border:none" src="static/image/logo.png" width="192" height="85" alt="Retwis"></a>
 	<div id="navbar">
-		<a href="/">home</a> | <a href="/timeline">timeline</a> | <a href="/logout">logout</a>
+		<a href="/">home</a> | <a href="/timeline">timeline</a>
+		{{if .IsLogin}}
+		 |  <a href="/logout">logout</a>
+		{{end}}
 	</div>
 </div>
-<div id="postform">
-	<form method="POST" action="/post">
-	{{.User.Username}}, what you are doing?  {{.Errstr}}<br>
-	<table>
-	<tr><td><textarea cols="70" rows="3" name="status"></textarea></td></tr>
-	<tr><td align="right"><input id="write", type="submit" name="doit" value="Update"></td></tr>
-	</table>
-	</form>
-	<div id="homeinfobox">
-	{{.FollowersCount}} followers<br>
-	{{.FollowingCount}} following<br>
-	</div>
-</div>
+<h2 class="username">{{.User.Username}}</h2>
+{{if .IsLogin}}
+	{{if not .IsSelf}}
+		{{if not .IsFollowing}}
+		<a href="/follow?userid={{.User.UserID}}&following=1" class="button">Follow this user</a>
+		{{else}}
+		<a href="/follow?userid={{.User.UserID}}&following=0" class="button">Stop following</a>
+		{{end}}
+	{{end}}
+{{end}}
 <!--showUserPostsWithPagination-->
 {{range .UserPosts.Posts}}
 <div class="post">
@@ -35,10 +35,10 @@
 {{end}}
 <div class="rightlink">
 {{if .UserPosts.HavePage}}
-<a href="/?start={{.UserPosts.PrevPosition}}">&laquo; Newer posts</a>
+<a href="/profile?start={{.UserPosts.PrevPosition}}&username={{.User.Username}}">&laquo; Newer posts</a>
 {{end}}
 {{if .UserPosts.HaveMore}}
-<a href="/?start={{.UserPosts.NextPosition}}">Older posts &raquo;</a>
+<a href="/profile?start={{.UserPosts.NextPosition}}&username={{.User.Username}}">Older posts &raquo;</a>
 {{end}}
 </div>
 <div id="footer">Redis is a very simple Twitter clone written in PHP as example application of the <a href="http://redis.io">Redis database</a></div>

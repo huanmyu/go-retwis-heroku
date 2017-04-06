@@ -62,3 +62,14 @@ func RandStringRunes(n int) string {
 	}
 	return string(b)
 }
+
+func FlushDB() error {
+	conn, err := getRedisConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	_, err = conn.Do("FLUSHDB")
+	return err
+}

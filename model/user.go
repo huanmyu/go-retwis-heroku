@@ -28,6 +28,15 @@ func (u *User) CreateUser() error {
 	}
 	defer conn.Close()
 
+	isExist, err := redis.Bool(conn.Do("SISMEMBER", "usernames", u.Username))
+	if err != nil {
+		return err
+	}
+
+	if isExist {
+		return errors.New("username already exists")
+	}
+
 	userID, err := redis.Int64(conn.Do("INCR", "next_user_id"))
 	if err != nil {
 		return err
@@ -42,6 +51,11 @@ func (u *User) CreateUser() error {
 	}
 	u.Auth = authSecret
 
+	_, err = conn.Do("SADD", "usernames", u.Username)
+	if err != nil {
+		return err
+	}
+
 	_, err = conn.Do("HSET", "users", u.Username, userID)
 	if err != nil {
 		return err
@@ -50,6 +64,18 @@ func (u *User) CreateUser() error {
 	_, err = conn.Do("HSET", "auths", authSecret, userID)
 
 	_, err = conn.Do("ZADD", "users_by_time", time.Now().Unix(), u.Username)
+	return err
+}
+
+func (u *User) GetUserByUserID() error {
+	conn, err := getRedisConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	userIDStr := strconv.FormatInt(u.UserID, 10)
+	u.Username, err = redis.String(conn.Do("HGET", "user:"+userIDStr, "username"))
 	return err
 }
 
@@ -82,12 +108,12 @@ func (u *User) GetUserByName() error {
 		return err
 	}
 
-	u.Followers, err = redis.Strings(conn.Do("SMEMBERS", "followers:"+userIDStr))
+	u.Followers, err = redis.Strings(conn.Do("ZRANGE", "followers:"+userIDStr, 0, -1))
 	if err != nil {
 		return err
 	}
 
-	u.Following, err = redis.Strings(conn.Do("SMEMBERS", "following:"+userIDStr))
+	u.Following, err = redis.Strings(conn.Do("ZRANGE", "following:"+userIDStr, 0, -1))
 	return err
 }
 
@@ -119,12 +145,12 @@ func (u *User) GetUserByAuth() error {
 		return err
 	}
 
-	u.Followers, err = redis.Strings(conn.Do("SMEMBERS", "followers:"+userIDStr))
+	u.Followers, err = redis.Strings(conn.Do("ZRANGE", "followers:"+userIDStr, 0, -1))
 	if err != nil {
 		return err
 	}
 
-	u.Following, err = redis.Strings(conn.Do("SMEMBERS", "following:"+userIDStr))
+	u.Following, err = redis.Strings(conn.Do("ZRANGE", "following:"+userIDStr, 0, -1))
 	return err
 }
 
@@ -185,25 +211,51 @@ func (u *User) GetUserPostCount() (int64, error) {
 func (u *User) GetLastUsers() ([]string, error) {
 	conn, err := getRedisConn()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer conn.Close()
 
 	return redis.Strings(conn.Do("ZREVRANGE", "users_by_time", 0, 9))
 }
 
-//// AddFollowers used to add followers
-//func (u *User) AddFollowers(follwer User) (err error) {
-//	followerAt := time.Now().Unix()
-//	_, err = R.Do("ZADD", "followers:"+u.UserID, followerAt, follwer.UserID)
-//	_, err = R.Do("ZADD", "following:"+follwer.UserID, followerAt, u.UserID)
-//	return
-//}
+func (u *User) IsFollowing(follwing *User) (bool, error) {
+	conn, err := getRedisConn()
+	if err != nil {
+		return false, err
+	}
+	defer conn.Close()
 
-//// AddFollowingUser used to add following user
-//func (u *User) AddFollowingUser(follwingUser User) (err error) {
-//	followingAt := time.Now().Unix()
-//	_, err = R.Do("ZADD", "following:"+u.UserID, followingAt, follwingUser.UserID)
-//	_, err = R.Do("ZADD", "followers:"+follwingUser.UserID, followingAt, u.UserID)
-//	return
-//}
+	userIDStr := strconv.FormatInt(u.UserID, 10)
+	score, err := redis.Int64(conn.Do("ZSCORE", "following:"+userIDStr, follwing.UserID))
+	if err != nil {
+		return false, err
+	}
+
+	if score > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// AddFollowingUser used to add following user
+func (u *User) AddOrRemFollowingUser(followingUser User, following string) error {
+	conn, err := getRedisConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	userIDStr := strconv.FormatInt(u.UserID, 10)
+	followingUserIDStr := strconv.FormatInt(followingUser.UserID, 10)
+	if following == "1" {
+		followingAt := time.Now().Unix()
+		_, err = conn.Do("ZADD", "following:"+userIDStr, followingAt, followingUser.UserID)
+		_, err = conn.Do("ZADD", "followers:"+followingUserIDStr, followingAt, u.UserID)
+	} else {
+		_, err = conn.Do("ZREM", "following:"+userIDStr, followingUser.UserID)
+		_, err = conn.Do("ZREM", "followers:"+followingUserIDStr, u.UserID)
+	}
+
+	return err
+}
