@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -24,15 +25,19 @@ type userPost struct {
 	Elapsed  string
 }
 
+type userPosts struct {
+	Posts        []userPost
+	PrevPosition int
+	NextPosition int
+	HavePage     bool
+	HaveMore     bool
+}
+
 type userInfo struct {
 	User           *model.User
 	FollowingCount int
 	FollowersCount int
-	UserPosts      []userPost
-	PrevPosition   int
-	NextPosition   int
-	HavePage       bool
-	HaveMore       bool
+	UserPosts      *userPosts
 	Errstr         string
 }
 
@@ -42,8 +47,17 @@ type timeline struct {
 	LatestUserPosts []userPost
 }
 
+type profile struct {
+	User        *model.User
+	IsLogin     bool
+	IsSelf      bool
+	IsFollowing bool
+	UserPosts   *userPosts
+}
+
 func postHandler(w http.ResponseWriter, r *http.Request) {
-	u, err := IsLogin(w, r, 0, 0)
+	u := &userInfo{}
+	err := IsLogin(w, r, 0, 0, u)
 	var errstr string
 	if err != nil {
 		t, _ := template.ParseFiles("template/index.html")
@@ -67,30 +81,13 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 		u.Errstr = errstr
 
-		postCount, _ := u.User.GetUserPostCount()
-		u.User.GetUserPosts(0, 10)
-
-		for i := range u.User.PostIDs {
-			postID := u.User.PostIDs[i]
-			p.GetPost(postID)
-			up := userPost{
-				Username: u.User.Username,
-				Content:  p.Content,
-				Elapsed:  strconv.FormatInt(p.CreatedAt, 10),
-			}
-			u.UserPosts = append(u.UserPosts, up)
+		u.UserPosts = &userPosts{}
+		err = getUserPosts(0, 10, u.User, u.UserPosts)
+		if err != nil {
+			t, _ := template.ParseFiles("template/index.html")
+			t.Execute(w, nil)
 		}
 
-		if postCount > 10 {
-			u.HaveMore = true
-			u.NextPosition = 10
-		} else {
-			u.NextPosition = 0
-			u.HaveMore = false
-		}
-
-		u.PrevPosition = 0
-		u.HavePage = false
 		t, _ := template.ParseFiles("template/home.html")
 		t.Execute(w, &u)
 	}
@@ -98,21 +95,28 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	u := model.User{}
-	if cookie, err := r.Cookie("auth"); err != nil {
-		http.Redirect(w, r, "/", http.StatusFound)
-	} else {
-		u.Auth = cookie.Value
-		err = u.UpdateUserAuth()
-		if err != nil {
-			http.Redirect(w, r, "/", http.StatusFound)
-		}
-
-		http.Redirect(w, r, "/", http.StatusFound)
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		t, _ := template.ParseFiles("template/index.html")
+		t.Execute(w, nil)
+		return
 	}
+	u.Auth = cookie.Value
+	err = u.UpdateUserAuth()
+	if err != nil {
+		t, _ := template.ParseFiles("template/index.html")
+		t.Execute(w, nil)
+		return
+	}
+	cookie.Expires = time.Now().AddDate(-1, 0, 0)
+	http.SetCookie(w, cookie)
+	t, _ := template.ParseFiles("template/index.html")
+	t.Execute(w, nil)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	u, err := IsLogin(w, r, 0, 10)
+	u := &userInfo{}
+	err := IsLogin(w, r, 0, 10, u)
 	if err != nil {
 		err := r.ParseForm()
 		if err != nil {
@@ -175,6 +179,16 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			cookie.Expires = oneYearAgo
 			http.SetCookie(w, cookie)
 		}
+
+		u.User = &user
+		u.UserPosts = &userPosts{}
+		err = getUserPosts(0, 10, u.User, u.UserPosts)
+		if err != nil {
+			log.Println("No Posts")
+		}
+
+		u.FollowingCount = len(user.Following)
+		u.FollowersCount = len(user.Followers)
 	}
 
 	t, _ := template.ParseFiles("template/home.html")
@@ -182,7 +196,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	u, err := IsLogin(w, r, 0, 10)
+	u := &userInfo{}
+	err := IsLogin(w, r, 0, 10, u)
 	if err != nil {
 		err := r.ParseForm()
 		if err != nil {
@@ -262,14 +277,20 @@ func faviconHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	startValue := r.FormValue("start")
 	var start int
+	err := r.ParseForm()
+	if err != nil {
+		t, _ := template.ParseFiles("template/index.html")
+		t.Execute(w, nil)
+	}
+
+	startValue := r.FormValue("start")
 	if s, err := strconv.Atoi(startValue); err == nil {
 		start = s
 	}
 
-	u, err := IsLogin(w, r, start, 10)
+	u := &userInfo{}
+	err = IsLogin(w, r, start, 10, u)
 	if err != nil {
 		t, _ := template.ParseFiles("template/index.html")
 		t.Execute(w, nil)
@@ -280,89 +301,230 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, &u)
 }
 
-func timelineHandler(w http.ResponseWriter, r *http.Request) {
-	//	var u model.User{}
-	//	var p model.Post{}
-	//	var t timeline{}
+func profileHandler(w http.ResponseWriter, r *http.Request) {
+	var start int
+	p := profile{}
+	user := model.User{}
+	err := r.ParseForm()
+	if err != nil {
+		log.Println("params miss")
+	}
 
-	//	cookie, err := r.Cookie("auth")
-	//	if err != nil {
+	startValue := r.FormValue("start")
+	if s, err := strconv.Atoi(startValue); err == nil {
+		start = s
+	}
 
-	//	}
+	p.User = &model.User{}
+	p.User.Username = r.FormValue("username")
 
-	//	u.Auth = cookie.Value
-	//	err = u.GetUserByAuth()
-	//	if err != nil {
-
-	//	}
-	//	t.LatestUsers, err := u.GetLastUsers()
-	//	t.LatestPosts, err = p.GetTimelinePosts()
-	//	t, _ := template.ParseFiles("template/home.html")
-	//	t.Execute(w, &u)
-
-}
-
-// IsLogin check user is or not login
-func IsLogin(w http.ResponseWriter, r *http.Request, start, count int) (userInfo, error) {
-	u := model.User{}
-	p := model.Post{}
-	data := userInfo{}
 	cookie, err := r.Cookie("auth")
 	if err != nil {
-		return data, err
+		p.IsLogin = false
+	}
+
+	user.Auth = cookie.Value
+	err = user.GetUserByAuth()
+	if err != nil {
+		p.IsLogin = false
+	} else {
+		p.IsLogin = true
+	}
+
+	err = p.User.GetUserByName()
+	if err != nil {
+		log.Println("profile user not found")
+	}
+
+	if user.UserID == p.User.UserID {
+		p.IsSelf = true
+		p.IsFollowing = false
+	} else {
+		p.IsSelf = false
+		p.IsFollowing, err = user.IsFollowing(p.User)
+		if err != nil {
+			log.Println("No Following")
+		}
+	}
+
+	p.UserPosts = &userPosts{}
+	err = getUserPosts(start, 10, p.User, p.UserPosts)
+	if err != nil {
+		log.Println("No Posts")
+	}
+
+	t, _ := template.ParseFiles("template/profile.html")
+	t.Execute(w, &p)
+}
+
+func timelineHandler(w http.ResponseWriter, r *http.Request) {
+	u := model.User{}
+	p := model.Post{}
+	t := timeline{}
+
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		t.IsLogin = false
+	} else {
+		u.Auth = cookie.Value
+		err = u.GetUserByAuth()
+		if err != nil {
+			t.IsLogin = false
+		} else {
+			t.IsLogin = true
+		}
+	}
+
+	t.LatestUsers, err = u.GetLastUsers()
+	if err != nil {
+		log.Println("No User Register!")
+	}
+	LatestPostIDs, err := p.GetTimelinePosts()
+	if err != nil {
+		log.Println("No Posts!")
+	}
+	for i := range LatestPostIDs {
+		postID := LatestPostIDs[i]
+		err = p.GetPost(postID)
+		if err != nil {
+			log.Println("No Post with id: " + postID)
+		}
+
+		user := model.User{
+			UserID: p.UserID,
+		}
+
+		var username string
+		err = user.GetUserByUserID()
+		if err != nil {
+			username = ""
+		} else {
+			username = user.Username
+		}
+
+		up := userPost{
+			Username: username,
+			Content:  p.Content,
+			Elapsed:  fmt.Sprintf("%v", time.Since(time.Unix(p.CreatedAt, 0))),
+		}
+		t.LatestUserPosts = append(t.LatestUserPosts, up)
+	}
+
+	tem, _ := template.ParseFiles("template/timeline.html")
+	tem.Execute(w, &t)
+}
+
+func followHandler(w http.ResponseWriter, r *http.Request) {
+	u := model.User{}
+	follow := model.User{}
+	err := r.ParseForm()
+	if err != nil {
+		log.Println("params miss")
+	}
+
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusFound)
 	}
 
 	u.Auth = cookie.Value
 	err = u.GetUserByAuth()
 	if err != nil {
-		return data, err
+		http.Redirect(w, r, "/", http.StatusFound)
 	}
 
+	userIDStr := r.FormValue("userid")
+	if s, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
+		follow.UserID = s
+	} else {
+		log.Println("params error")
+	}
+	follow.GetUserByUserID()
+
+	following := r.FormValue("following")
+
+	u.AddOrRemFollowingUser(follow, following)
+	http.Redirect(w, r, "/profile?username="+follow.Username, http.StatusFound)
+}
+
+// IsLogin check user is or not login
+func IsLogin(w http.ResponseWriter, r *http.Request, start, count int, data *userInfo) error {
+	data.User = &model.User{}
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		return err
+	}
+
+	data.User.Auth = cookie.Value
+	err = data.User.GetUserByAuth()
+	if err != nil {
+		return err
+	}
+
+	data.UserPosts = &userPosts{}
+	err = getUserPosts(start, count, data.User, data.UserPosts)
+	if err != nil {
+		return err
+	}
+
+	data.FollowingCount = len(data.User.Following)
+	data.FollowersCount = len(data.User.Followers)
+
+	return nil
+}
+
+func getUserPosts(start, count int, u *model.User, ups *userPosts) error {
 	if count > 0 {
-		postCount, _ := u.GetUserPostCount()
+		p := model.Post{}
+		postCount, err := u.GetUserPostCount()
 		err = u.GetUserPosts(start, count)
 		if err != nil {
-			return data, err
+			return err
 		}
 
 		for i := range u.PostIDs {
 			postID := u.PostIDs[i]
 			err = p.GetPost(postID)
 			if err != nil {
-				return data, err
+				return err
 			}
 
 			up := userPost{
 				Username: u.Username,
 				Content:  p.Content,
-				Elapsed:  strconv.FormatInt(p.CreatedAt, 10),
+				Elapsed:  fmt.Sprintf("%v", time.Since(time.Unix(p.CreatedAt, 0))),
 			}
-			data.UserPosts = append(data.UserPosts, up)
+			ups.Posts = append(ups.Posts, up)
 		}
 
 		nextPosition := start + count
 		if postCount > int64(nextPosition) {
-			data.HaveMore = true
-			data.NextPosition = nextPosition
+			ups.HaveMore = true
+			ups.NextPosition = nextPosition
 		} else {
-			data.NextPosition = 0
-			data.HaveMore = false
+			ups.NextPosition = 0
+			ups.HaveMore = false
 		}
 
 		if start > 0 {
-			data.PrevPosition = start - count
-			data.HavePage = true
+			ups.PrevPosition = start - count
+			ups.HavePage = true
 		} else {
-			data.PrevPosition = 0
-			data.HavePage = false
+			ups.PrevPosition = 0
+			ups.HavePage = false
 		}
 	}
+	return nil
+}
 
-	data.User = &u
-	data.FollowingCount = len(u.Following)
-	data.FollowersCount = len(u.Followers)
-
-	return data, nil
+// danger
+func flushHandler(w http.ResponseWriter, r *http.Request) {
+	err := model.FlushDB()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithIndentJSON(w, http.StatusOK, map[string]string{"code": "200", "result": "flush success"})
 }
 
 func main() {
@@ -381,6 +543,10 @@ func main() {
 
 	mux.HandleFunc("/post", postHandler)
 	mux.HandleFunc("/timeline", timelineHandler)
+	mux.HandleFunc("/profile", profileHandler)
+	mux.HandleFunc("/follow", followHandler)
+	mux.HandleFunc("/flush", flushHandler)
+
 	// Includes some default middlewares
 	n := negroni.Classic()
 	n.UseHandler(mux)

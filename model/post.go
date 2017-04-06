@@ -72,6 +72,11 @@ func (p *Post) GetPost(postID string) error {
 	}
 	defer conn.Close()
 
+	p.UserID, err = redis.Int64(conn.Do("HGET", "post:"+postID, "userid"))
+	if err != nil {
+		return err
+	}
+
 	p.CreatedAt, err = redis.Int64(conn.Do("HGET", "post:"+postID, "created_at"))
 	if err != nil {
 		return err
@@ -85,7 +90,7 @@ func (p *Post) GetPost(postID string) error {
 func (p *Post) GetTimelinePosts() ([]string, error) {
 	conn, err := getRedisConn()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer conn.Close()
 
