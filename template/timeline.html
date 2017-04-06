@@ -11,11 +11,25 @@
 	<a href="/"><img style="border:none" src="static/image/logo.png" width="192" height="85" alt="Retwis"></a>
 	<div id="navbar">
 		<a href="/">home</a> | <a href="/timeline">timeline</a>
+		{{if .IsLogin}}
+		 |  <a href="/logout">logout</a>
+		{{end}}
 	</div>
 </div>
 <h2>Timeline</h2>
 <i>Latest registered users (an example of sorted sets)</i><br>
+	<div>
+		{{range .LatestUsers}}
+		<a class="username" href="/profile?u=">{{.Username}}}</a>
+		{{end}}
+	</div><br>
 <i>Latest 50 messages from users aroud the world!</i><br>
+	{{range .LatestUserPosts}}
+		<div class="post">
+			<a class="username" href="/profile?u=">{{.Username}}}</a>&nbsp{{.Content}}</br>
+			<i>posted {{.Elapsed}} ago via web</i>
+		</div>
+	{{end}}	
 <div id="footer">Redis is a very simple Twitter clone written in PHP as example application of the <a href="http://redis.io">Redis database</a></div>
 </div>
 </body>

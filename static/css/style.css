@@ -75,9 +75,17 @@ body {
     -webkit-border-radius:5px;
     border-radius:5px;
     position:relative;
-    padding:10px;
+    padding:15px;
     margin:10px;
     background-color: #eee;
+}
+
+textarea {
+	width: 845px;
+}
+
+#write {
+	margin-right: 25px;
 }
 
 .rightlink {
@@ -104,13 +112,13 @@ h2.username {
 }
 
 a.button {
-margin-left:15px;
-text-decoration:none;
-border: 1px #aaa dotted;
-padding:3px;
-background-color:#eee;
-color:#444;
-font-size:12px;
+	margin-left:15px;
+	text-decoration:none;
+	border: 1px #aaa dotted;
+	padding:3px;
+	background-color:#eee;
+	color:#444;
+	font-size:12px;
 }
 
 #homeinfobox {
@@ -118,8 +126,8 @@ font-size:12px;
     -webkit-border-radius:5px;
     border-radius:5px;
     position: absolute;
-    right:5px;
-    top:5px;
+    right:10px;
+    top:0px;
     background-color: #ccc;
     width:200px;
     font-size:12px;

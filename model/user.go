@@ -17,6 +17,7 @@ type User struct {
 	Auth      string   `json:"auth"`
 	Followers []string `json:"followers"`
 	Following []string `json:"following"`
+	PostIDs   []string `json:"postids"`
 }
 
 // CreateUser used to create user
@@ -127,29 +128,69 @@ func (u *User) GetUserByAuth() error {
 	return err
 }
 
-//// UpdateUserAuth update user auth secret
-//func (u *User) UpdateUserAuth() error {
-//	authValue, err := R.Do("HGET", "user:"+u.UserID, "auth")
-//	if err != nil {
-//		return err
-//	}
+// UpdateUserAuth update user auth secret
+func (u *User) UpdateUserAuth() error {
+	conn, err := getRedisConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
 
-//	auth := authValue.(string)
+	u.UserID, err = redis.Int64(conn.Do("HGET", "auths", u.Auth))
+	if err != nil {
+		return err
+	}
+	userIDStr := strconv.FormatInt(u.UserID, 10)
 
-//	newAuth := RandStringRunes(30)
-//	_, err = R.Do("HSET", "user:"+u.UserID, "auth", newAuth)
-//	if err != nil {
-//		return err
-//	}
+	newAuth := RandStringRunes(30)
+	_, err = conn.Do("HSET", "user:"+userIDStr, "auth", newAuth)
+	if err != nil {
+		return err
+	}
 
-//	_, err = R.Do("HSET", "auths", newAuth, u.UserID)
-//	if err != nil {
-//		return err
-//	}
+	_, err = conn.Do("HSET", "auths", newAuth, u.UserID)
+	if err != nil {
+		return err
+	}
 
-//	_, err = R.Do("HDEL", "auths", auth)
-//	return err
-//}
+	_, err = conn.Do("HDEL", "auths", u.Auth)
+	return err
+}
+
+// GetUserPosts used to get user postids
+func (u *User) GetUserPosts(start int, count int) error {
+	conn, err := getRedisConn()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	userIDStr := strconv.FormatInt(u.UserID, 10)
+	u.PostIDs, err = redis.Strings(conn.Do("LRANGE", "posts:"+userIDStr, start, start+count))
+	return err
+}
+
+func (u *User) GetUserPostCount() (int64, error) {
+	conn, err := getRedisConn()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	userIDStr := strconv.FormatInt(u.UserID, 10)
+	return redis.Int64(conn.Do("LLEN", "posts:"+userIDStr))
+
+}
+
+func (u *User) GetLastUsers() ([]string, error) {
+	conn, err := getRedisConn()
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+
+	return redis.Strings(conn.Do("ZREVRANGE", "users_by_time", 0, 9))
+}
 
 //// AddFollowers used to add followers
 //func (u *User) AddFollowers(follwer User) (err error) {

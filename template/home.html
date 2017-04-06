@@ -10,15 +10,15 @@
 <div id="header">
 	<a href="/"><img style="border:none" src="static/image/logo.png" width="192" height="85" alt="Retwis"></a>
 	<div id="navbar">
-		<a href="/">home</a> | <a href="/timeline">timeline</a>
+		<a href="/">home</a> | <a href="/timeline">timeline</a> | <a href="/logout">logout</a>
 	</div>
 </div>
 <div id="postform">
 	<form method="POST" action="/post">
-	{{.User.Username}}, what you are doing?<br>
+	{{.User.Username}}, what you are doing?  {{.Errstr}}<br>
 	<table>
 	<tr><td><textarea cols="70" rows="3" name="status"></textarea></td></tr>
-	<tr><td align="right"><input type="submit" name="doit" value="Update"></td></tr>
+	<tr><td align="right"><input id="write", type="submit" name="doit" value="Update"></td></tr>
 	</table>
 	</form>
 	<div id="homeinfobox">
@@ -27,6 +27,20 @@
 	</div>
 </div>
 <!--showUserPostsWithPagination-->
+{{range .UserPosts}}
+<div class="post">
+	<a class= "username" href="/profile?u=">{{.Username}}</a> {{.Content}}</br>
+	<i>posted {{.Elapsed}} ago via web</i>
+</div>
+{{end}}
+<div class="rightlink">
+{{if .HavePage}}
+<a href="/?start={{.PrevPosition}}">&laquo; Newer posts</a>
+{{end}}
+{{if .HaveMore}}
+<a href="/?start={{.NextPosition}}">Older posts &raquo;</a>
+{{end}}
+</div>
 <div id="footer">Redis is a very simple Twitter clone written in PHP as example application of the <a href="http://redis.io">Redis database</a></div>
 </div>
 </body>
