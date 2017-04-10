@@ -34,7 +34,10 @@ func (u *User) CreateUser() error {
 	}
 
 	salt, password := md5Password(u.Password)
-	authSecret := RandStringRunes(30)
+	authSecret, err := CreateUUID()
+	if err != nil {
+		authSecret = RandStringRunes(30)
+	}
 
 	_, err = conn.Do("HMSET", "user:"+strconv.FormatInt(userID, 10), "username", u.Username, "salt", salt, "password", password, "auth", authSecret)
 	if err != nil {
@@ -154,7 +157,11 @@ func (u *User) UpdateUserAuth() error {
 	}
 	userIDStr := strconv.FormatInt(u.UserID, 10)
 
-	newAuth := RandStringRunes(30)
+	newAuth, err := CreateUUID()
+	if err != nil {
+		newAuth = RandStringRunes(30)
+	}
+
 	_, err = conn.Do("HSET", "user:"+userIDStr, "auth", newAuth)
 	if err != nil {
 		return err

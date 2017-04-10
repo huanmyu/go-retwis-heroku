@@ -2,6 +2,7 @@ package model
 
 import (
 	"crypto/md5"
+	crand "crypto/rand"
 	"encoding/hex"
 	"errors"
 	"math/rand"
@@ -61,6 +62,18 @@ func RandStringRunes(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func CreateUUID() (string, error) {
+	uuid := make([]byte, 16)
+	n, err := crand.Read(uuid)
+	if n != len(uuid) || err != nil {
+		return "", err
+	}
+
+	uuid[8] = uuid[8]&^0xc0 | 0x80
+	uuid[6] = uuid[6]&^0xf0 | 0x40
+	return hex.EncodeToString(uuid), nil
 }
 
 func FlushDB() error {
