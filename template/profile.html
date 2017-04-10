@@ -17,11 +17,21 @@
 	</div>
 </div>
 <h2 class="username">{{.User.Username}}</h2>
+<<<<<<< HEAD
 {{if not .IsSelf}}
 	{{if not .IsFollowing}}
 	<a href="/follow?userid={{.User.UserID}}&following=1" class="button">Follow this user</a>
 	{{else}}
 	<a href="/follow?userid={{.User.UserID}}&following=0" class="button">Stop following</a>
+=======
+{{if .IsLogin}}
+	{{if not .IsSelf}}
+		{{if not .IsFollowing}}
+		<a href="/follow?userid={{.User.UserID}}&following=1" class="button">Follow this user</a>
+		{{else}}
+		<a href="/follow?userid={{.User.UserID}}&following=0" class="button">Stop following</a>
+		{{end}}
+>>>>>>> ba331042d93790e872f530deadc20a17c1b53484
 	{{end}}
 {{end}}
 <!--showUserPostsWithPagination-->

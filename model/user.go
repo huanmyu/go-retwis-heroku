@@ -28,6 +28,15 @@ func (u *User) CreateUser() error {
 	}
 	defer conn.Close()
 
+	isExist, err := redis.Bool(conn.Do("SISMEMBER", "usernames", u.Username))
+	if err != nil {
+		return err
+	}
+
+	if isExist {
+		return errors.New("username already exists")
+	}
+
 	userID, err := redis.Int64(conn.Do("INCR", "next_user_id"))
 	if err != nil {
 		return err
@@ -44,6 +53,11 @@ func (u *User) CreateUser() error {
 		return err
 	}
 	u.Auth = authSecret
+
+	_, err = conn.Do("SADD", "usernames", u.Username)
+	if err != nil {
+		return err
+	}
 
 	_, err = conn.Do("HSET", "users", u.Username, userID)
 	if err != nil {

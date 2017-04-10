@@ -79,17 +79,20 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 			errstr = err.Error()
 		}
 
-		u.Errstr = errstr
+		if errstr != "" {
+			u.Errstr = errstr
+			u.UserPosts = &userPosts{}
+			err = getUserPosts(0, 10, u.User, u.UserPosts)
+			if err != nil {
+				t, _ := template.ParseFiles("template/index.html")
+				t.Execute(w, nil)
+			}
 
-		u.UserPosts = &userPosts{}
-		err = getUserPosts(0, 10, u.User, u.UserPosts)
-		if err != nil {
-			t, _ := template.ParseFiles("template/index.html")
-			t.Execute(w, nil)
+			t, _ := template.ParseFiles("template/home.html")
+			t.Execute(w, &u)
+		} else {
+			http.Redirect(w, r, "/", http.StatusFound)
 		}
-
-		t, _ := template.ParseFiles("template/home.html")
-		t.Execute(w, &u)
 	}
 }
 
@@ -101,6 +104,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		t.Execute(w, nil)
 		return
 	}
+
 	u.Auth = cookie.Value
 	err = u.UpdateUserAuth()
 	if err != nil {
@@ -108,6 +112,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		t.Execute(w, nil)
 		return
 	}
+
 	cookie.Expires = time.Now().AddDate(-1, 0, 0)
 	http.SetCookie(w, cookie)
 	t, _ := template.ParseFiles("template/index.html")
@@ -179,20 +184,18 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			cookie.Expires = oneYearAgo
 			http.SetCookie(w, cookie)
 		}
+		//		u.User = &user
+		//		u.UserPosts = &userPosts{}
+		//		err = getUserPosts(0, 10, u.User, u.UserPosts)
+		//		if err != nil {
+		//			log.Println("No Posts")
+		//		}
 
-		u.User = &user
-		u.UserPosts = &userPosts{}
-		err = getUserPosts(0, 10, u.User, u.UserPosts)
-		if err != nil {
-			log.Println("No Posts")
-		}
-
-		u.FollowingCount = len(user.Following)
-		u.FollowersCount = len(user.Followers)
+		//		u.FollowingCount = len(user.Following)
+		//		u.FollowersCount = len(user.Followers)
 	}
 
-	t, _ := template.ParseFiles("template/home.html")
-	t.Execute(w, &u)
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -239,12 +242,12 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		u := model.User{
+		user := model.User{
 			Username: username,
 			Password: password,
 		}
 
-		err = u.CreateUser()
+		err = user.CreateUser()
 		if err != nil {
 			errInfo := errs{
 				RegisterErr: err.Error(),
@@ -256,20 +259,19 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 		oneYearAgo := time.Now().Add(time.Hour * 24 * 365)
 		if cookie, err := r.Cookie("auth"); err != nil {
-			http.SetCookie(w, &http.Cookie{Name: "auth", Value: u.Auth, Expires: oneYearAgo})
+			http.SetCookie(w, &http.Cookie{Name: "auth", Value: user.Auth, Expires: oneYearAgo})
 		} else {
-			cookie.Value = u.Auth
+			cookie.Value = user.Auth
 			cookie.Expires = oneYearAgo
 			http.SetCookie(w, cookie)
 		}
 
 		t, _ := template.ParseFiles("template/register.html")
-		t.Execute(w, &u)
-		return
+		t.Execute(w, &user)
+	} else {
+		t, _ := template.ParseFiles("template/register.html")
+		t.Execute(w, u.User)
 	}
-
-	t, _ := template.ParseFiles("template/home.html")
-	t.Execute(w, &u)
 }
 
 func faviconHandler(w http.ResponseWriter, r *http.Request) {
@@ -321,14 +323,14 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("auth")
 	if err != nil {
 		p.IsLogin = false
-	}
-
-	user.Auth = cookie.Value
-	err = user.GetUserByAuth()
-	if err != nil {
-		p.IsLogin = false
 	} else {
-		p.IsLogin = true
+		user.Auth = cookie.Value
+		err = user.GetUserByAuth()
+		if err != nil {
+			p.IsLogin = false
+		} else {
+			p.IsLogin = true
+		}
 	}
 
 	err = p.User.GetUserByName()
