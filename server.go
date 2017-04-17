@@ -184,15 +184,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			cookie.Expires = oneYearAgo
 			http.SetCookie(w, cookie)
 		}
-		//		u.User = &user
-		//		u.UserPosts = &userPosts{}
-		//		err = getUserPosts(0, 10, u.User, u.UserPosts)
-		//		if err != nil {
-		//			log.Println("No Posts")
-		//		}
-
-		//		u.FollowingCount = len(user.Following)
-		//		u.FollowersCount = len(user.Followers)
 	}
 
 	http.Redirect(w, r, "/", http.StatusFound)
@@ -529,6 +520,36 @@ func flushHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithIndentJSON(w, http.StatusOK, map[string]string{"code": "200", "result": "flush success"})
 }
 
+func chatHandler(w http.ResponseWriter, r *http.Request) {
+	u := model.User{}
+
+	var IsLogin bool
+	cookie, err := r.Cookie("auth")
+	if err != nil {
+		IsLogin = false
+	} else {
+		u.Auth = cookie.Value
+		err = u.GetUserByAuth()
+		if err != nil {
+			IsLogin = false
+		} else {
+			IsLogin = true
+		}
+	}
+
+	_, err = u.GetLastUsers()
+	if err != nil {
+		log.Println("No User Register!")
+	}
+	c := struct {
+		IsLogin bool
+	}{
+		IsLogin: IsLogin,
+	}
+	tem, _ := template.ParseFiles("template/chat.html")
+	tem.Execute(w, c)
+}
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -548,6 +569,8 @@ func main() {
 	mux.HandleFunc("/profile", profileHandler)
 	mux.HandleFunc("/follow", followHandler)
 	mux.HandleFunc("/flush", flushHandler)
+
+	mux.HandleFunc("/chat", chatHandler)
 
 	// Includes some default middlewares
 	n := negroni.Classic()

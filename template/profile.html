@@ -10,20 +10,13 @@
 <div id="header">
 	<a href="/"><img style="border:none" src="static/image/logo.png" width="192" height="85" alt="Retwis"></a>
 	<div id="navbar">
-		<a href="/">home</a> | <a href="/timeline">timeline</a>
+		<a href="/">home</a> | <a href="/timeline">timeline</a> | <a href="/chat">chat</a>
 		{{if .IsLogin}}
 		 |  <a href="/logout">logout</a>
 		{{end}}
 	</div>
 </div>
 <h2 class="username">{{.User.Username}}</h2>
-<<<<<<< HEAD
-{{if not .IsSelf}}
-	{{if not .IsFollowing}}
-	<a href="/follow?userid={{.User.UserID}}&following=1" class="button">Follow this user</a>
-	{{else}}
-	<a href="/follow?userid={{.User.UserID}}&following=0" class="button">Stop following</a>
-=======
 {{if .IsLogin}}
 	{{if not .IsSelf}}
 		{{if not .IsFollowing}}
@@ -31,7 +24,6 @@
 		{{else}}
 		<a href="/follow?userid={{.User.UserID}}&following=0" class="button">Stop following</a>
 		{{end}}
->>>>>>> ba331042d93790e872f530deadc20a17c1b53484
 	{{end}}
 {{end}}
 <!--showUserPostsWithPagination-->

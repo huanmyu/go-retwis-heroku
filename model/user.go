@@ -17,6 +17,7 @@ type User struct {
 	Auth      string   `json:"auth"`
 	Followers []string `json:"followers"`
 	Following []string `json:"following"`
+	Channels  []string `json:"channels"`
 	PostIDs   []string `json:"postids"`
 }
 

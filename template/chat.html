@@ -16,20 +16,33 @@
 		{{end}}
 	</div>
 </div>
-<h2>Timeline</h2>
-<i>Latest registered users (an example of sorted sets)</i><br>
-	<div>
-		{{range .LatestUsers}}
-		<a class="username" href="/profile?username={{.}}">{{.}}</a>
-		{{end}}
-	</div><br>
-<i>Latest 50 messages from users aroud the world!</i><br>
-	{{range .LatestUserPosts}}
-		<div class="post">
-			<a class="username" href="/profile?username={{.Username}}">{{.Username}}</a>&nbsp{{.Content}}</br>
-			<i>posted {{.Elapsed}} ago via web</i>
-		</div>
-	{{end}}	
+<div id="channels">
+	<h3>
+		Channels
+		<span>({{.ChannelsCount}})</span>
+		<i class="icon-plus" aria-label="Create channel" role="button"></i>
+	</h3>
+	{{range .User.Channels}}
+	{{end}}
+</div>
+<div id="following">
+	<h3>
+		Following
+		<span>({{.FollowingCount}})</span>
+		<i class="icon-plus" aria-label="Create Following" role="button"></i>
+	</h3>
+	{{range .User.Following}}
+	
+	{{end}}
+<div id="followers">
+	<h3>
+		Followers
+		<span>({{.FollowersCount}})</span>
+		<i class="icon-plus" aria-label="Create Followers" role="button"></i>
+	</h3>
+	{{range .User.Followers}}
+	{{end}}
+</div>
 <div id="footer">Redis is a very simple Twitter clone written in PHP as example application of the <a href="http://redis.io">Redis database</a></div>
 </div>
 </body>
