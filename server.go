@@ -550,6 +550,15 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	tem.Execute(w, c)
 }
 
+func wordHandler(w http.ResponseWriter, r *http.Request) {
+	word := model.Word{Name: "go"}
+	err := word.CreateWord()
+	if err != nil {
+		log.Println(err)
+	}
+	respondWithIndentJSON(w, http.StatusOK, word)
+}
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -571,6 +580,8 @@ func main() {
 	mux.HandleFunc("/flush", flushHandler)
 
 	mux.HandleFunc("/chat", chatHandler)
+
+	mux.HandleFunc("/word", wordHandler)
 
 	// Includes some default middlewares
 	n := negroni.Classic()
