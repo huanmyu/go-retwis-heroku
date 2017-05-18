@@ -538,7 +538,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = u.GetLastUsers()
-	if err != nil {
+	oif err != nil {
 		log.Println("No User Register!")
 	}
 	c := struct {

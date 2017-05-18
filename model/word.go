@@ -49,6 +49,12 @@ type Word struct {
 }
 
 func (w *Word) CreateWord() error {
+	conn, err := getRedisconn()
+	if err != nil {
+		return nil
+	}
+	defer conn.Close()
+
 	url := "http://dict-co.iciba.com/api/dictionary.php?w=go&key=FB6A324454DE5CC292A2B1A893D2F2CA&type=json"
 	r, err := http.DefaultClient.Get(url)
 	if err != nil {
@@ -60,5 +66,21 @@ func (w *Word) CreateWord() error {
 	if err != nil {
 		return err
 	}
+	symbol := w.Symbols[0]
+	parts := symbol.Parts
+
+	_, err = conn.Do("HMSET", "word:"+w.Name, "am", symbol.Am, "ammp3", symbol.Ammp3)
+	if err != nil {
+		return err
+	}
+
+	for i := range parts {
+		part := parts[i]
+		_, err = conn.Do("HMSET", "means", "part", part.Part, "mean", part.Means)
+	}
 	return nil
+}
+
+func convertSliceToString() error {
+
 }
