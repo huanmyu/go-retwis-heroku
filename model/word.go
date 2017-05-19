@@ -1,9 +1,12 @@
-// word.go
 package model
 
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 //'word_name':'' #单词
@@ -17,13 +20,13 @@ import (
 //'parts':'' #词的各种意思
 
 type exchange struct {
-	Pl    []string `json:"word_pl"`
-	Past  []string `json:"word_past"`
-	Donr  []string `json:"word_done"`
-	Ing   []string `json:"word_ing"`
-	Third []string `json:"word_third"`
-	Er    string   `json:"word_er"`
-	Est   string   `json:"word_est"`
+	Pl    []string    `json:"word_pl"`
+	Past  interface{} `json:"word_past,omitempty"`
+	Donr  interface{} `json:"word_done,omitempty"`
+	Ing   interface{} `json:"word_ing,omitempty"`
+	Third interface{} `json:"word_third,omitempty"`
+	Er    string      `json:"word_er"`
+	Est   string      `json:"word_est"`
 }
 
 type part struct {
@@ -48,14 +51,27 @@ type Word struct {
 	Items    []string `json:"items"`
 }
 
+type mean struct {
+	Part string `json:"part"`
+	Mean string `json:"mean"`
+}
+
+type ExpectWord struct {
+	Name  string `json:"name"`
+	Am    string `json:"am"`
+	MP3   string `json:"mp3"`
+	Means []mean `json:"means"`
+}
+
 func (w *Word) CreateWord() error {
-	conn, err := getRedisconn()
+	conn, err := getRedisConn()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer conn.Close()
 
-	url := "http://dict-co.iciba.com/api/dictionary.php?w=go&key=FB6A324454DE5CC292A2B1A893D2F2CA&type=json"
+	url := "http://dict-co.iciba.com/api/dictionary.php?key=FB6A324454DE5CC292A2B1A893D2F2CA&type=json&w="
+	url = url + w.Name
 	r, err := http.DefaultClient.Get(url)
 	if err != nil {
 		return err
@@ -63,9 +79,11 @@ func (w *Word) CreateWord() error {
 
 	defer r.Body.Close()
 	err = json.NewDecoder(r.Body).Decode(w)
+
 	if err != nil {
 		return err
 	}
+
 	symbol := w.Symbols[0]
 	parts := symbol.Parts
 
@@ -75,12 +93,69 @@ func (w *Word) CreateWord() error {
 	}
 
 	for i := range parts {
+		meanID, err := redis.Int64(conn.Do("INCR", "next_mean_id"))
+		if err != nil {
+			return err
+		}
+
+		meanIDStr := strconv.FormatInt(meanID, 10)
+
 		part := parts[i]
-		_, err = conn.Do("HMSET", "means", "part", part.Part, "mean", part.Means)
+		_, err = conn.Do("HMSET", "mean:"+meanIDStr, "part", part.Part, "mean", strings.Join(part.Means, ","))
+		_, err = conn.Do("LPUSH", "means:"+w.Name, meanIDStr)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func convertSliceToString() error {
+func GetWords(wordNames []string) ([]ExpectWord, error) {
+	conn, err := getRedisConn()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
 
+	ews := []ExpectWord{}
+	for i := range wordNames {
+		if !checkWordExist(wordNames[i], conn) {
+			w := Word{Name: wordNames[i]}
+			w.CreateWord()
+		}
+
+		ew := ExpectWord{}
+		ew.Name = wordNames[i]
+		// todo check err
+		ew.Am, err = redis.String(conn.Do("HGET", "word:"+ew.Name, "am"))
+		ew.MP3, err = redis.String(conn.Do("HGET", "word:"+ew.Name, "ammp3"))
+		ms, err := redis.Strings(conn.Do("LRANGE", "means:"+ew.Name, 0, -1))
+		if err != nil {
+			return nil, err
+		}
+		means := []mean{}
+		for i := range ms {
+			m := mean{}
+			meanIDStr := ms[i]
+			m.Part, err = redis.String(conn.Do("HGET", "mean:"+meanIDStr, "part"))
+			m.Mean, err = redis.String(conn.Do("HGET", "mean:"+meanIDStr, "mean"))
+			means = append(means, m)
+		}
+		ew.Means = means
+		ews = append(ews, ew)
+	}
+	return ews, nil
+}
+
+func checkWordExist(wordName string, conn redis.Conn) bool {
+	et, err := redis.Int64(conn.Do("EXISTS", "word:"+wordName))
+	if err != nil {
+		return false
+	}
+
+	if et == 0 {
+		return false
+	}
+
+	return true
 }

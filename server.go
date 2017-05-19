@@ -1,17 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/bowenchen6/go-retwis-heroku/model"
+	"github.com/gorilla/mux"
+	"github.com/urfave/negroni"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"text/template"
 	"time"
-
-	"github.com/bowenchen6/go-retwis-heroku/model"
-	"github.com/gorilla/mux"
-	"github.com/urfave/negroni"
 )
 
 type errs struct {
@@ -538,7 +538,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = u.GetLastUsers()
-	oif err != nil {
+	if err != nil {
 		log.Println("No User Register!")
 	}
 	c := struct {
@@ -551,12 +551,38 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func wordHandler(w http.ResponseWriter, r *http.Request) {
-	word := model.Word{Name: "go"}
-	err := word.CreateWord()
+	err := r.ParseForm()
+	if err != nil {
+		log.Println(err)
+	}
+
+	wordName := r.FormValue("word")
+
+	word := model.Word{Name: wordName}
+	err = word.CreateWord()
 	if err != nil {
 		log.Println(err)
 	}
 	respondWithIndentJSON(w, http.StatusOK, word)
+}
+
+func wordsHandler(w http.ResponseWriter, r *http.Request) {
+	wordNames := struct {
+		Names []string `json:"names"`
+	}{}
+	defer r.Body.Close()
+
+	err := json.NewDecoder(r.Body).Decode(&wordNames)
+	if err != nil {
+		log.Println(err)
+	}
+
+	ews, err := model.GetWords(wordNames.Names)
+	if err != nil {
+		log.Println(err)
+	}
+
+	respondWithIndentJSON(w, http.StatusOK, ews)
 }
 
 func main() {
@@ -582,6 +608,7 @@ func main() {
 	mux.HandleFunc("/chat", chatHandler)
 
 	mux.HandleFunc("/word", wordHandler)
+	mux.HandleFunc("/words", wordsHandler)
 
 	// Includes some default middlewares
 	n := negroni.Classic()
